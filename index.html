@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study Sprint — focus timer &amp; task list</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8F%83%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0f1220;
+    --panel: #171b2e;
+    --panel-2: #1d2238;
+    --line: #2a3050;
+    --text: #e8ebf5;
+    --muted: #9aa3c4;
+    --accent: #5b8cff;
+    --accent-2: #37d6a4;
+    --danger: #ff6b6b;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(1000px 600px at 15% -10%, #1b2440, transparent), var(--bg);
+    color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px 56px;
+  }
+  main { width: 100%; max-width: 760px; }
+  header h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: .2px; }
+  header p { margin: 0 0 24px; color: var(--muted); }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 18px;
+  }
+  .card h2 { margin: 0 0 14px; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+
+  /* Timer */
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .presets button {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+    border-radius: 999px; padding: 8px 14px; cursor: pointer; font-size: 14px;
+  }
+  .presets button.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+  .clock { font-size: 76px; font-weight: 700; text-align: center; letter-spacing: 2px; font-variant-numeric: tabular-nums; }
+  .clock.done { color: var(--accent-2); }
+
+  .bar { height: 8px; background: var(--panel-2); border-radius: 999px; overflow: hidden; margin: 8px 0 20px; }
+  .bar > div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .3s linear; }
+
+  .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .actions button {
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+    padding: 11px 22px; border-radius: 10px; font-size: 15px; cursor: pointer;
+  }
+  .actions button:hover { border-color: var(--accent); }
+  #startBtn { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; min-width: 130px; }
+  #startBtn.running { background: #ff9f43; border-color: #ff9f43; color: #22252b; }
+
+  /* Stats */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px; text-align: center; }
+  .stat b { display: block; font-size: 26px; }
+  .stat span { color: var(--muted); font-size: 13px; }
+
+  /* Tasks */
+  .row { display: flex; gap: 10px; }
+  .row input[type="text"] {
+    flex: 1; background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+    padding: 11px 14px; border-radius: 10px; font-size: 15px;
+  }
+  .row input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row button { background: var(--accent-2); border: 0; color: #08301f; font-weight: 700; padding: 0 20px; border-radius: 10px; cursor: pointer; }
+
+  ul.tasks { list-style: none; padding: 0; margin: 14px 0 0; }
+  ul.tasks li {
+    display: flex; align-items: center; gap: 12px; padding: 11px 12px;
+    border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; background: var(--panel-2);
+  }
+  ul.tasks li input { width: 18px; height: 18px; accent-color: var(--accent-2); cursor: pointer; }
+  ul.tasks li label { flex: 1; cursor: pointer; word-break: break-word; }
+  ul.tasks li.done label { text-decoration: line-through; color: var(--muted); }
+  ul.tasks li .del { background: none; border: 0; color: var(--danger); cursor: pointer; font-size: 18px; line-height: 1; }
+  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 12px 0; }
+  .foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; margin-top: 12px; }
+  .foot button { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+
+  /* Toast */
+  #toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 24px);
+    background: var(--accent-2); color: #08301f; font-weight: 700; padding: 12px 20px;
+    border-radius: 10px; opacity: 0; pointer-events: none; transition: .3s;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (max-width: 520px) { .clock { font-size: 54px; } .stats { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Study Sprint</h1>
+    <p>Run a focused sprint, tick off tasks, keep your streak alive.</p>
+  </header>
+
+  <section class="card">
+    <h2>Focus sprint</h2>
+    <div class="presets" id="presets"></div>
+    <div class="clock" id="clock">25:00</div>
+    <div class="bar"><div id="fill"></div></div>
+    <div class="actions">
+      <button id="startBtn">Start</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Today</h2>
+    <div class="stats">
+      <div class="stat"><b id="sSessions">0</b><span>sprints done</span></div>
+      <div class="stat"><b id="sMinutes">0</b><span>focus minutes</span></div>
+      <div class="stat"><b id="sStreak">0</b><span>day streak</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Tasks</h2>
+    <form class="row" id="taskForm">
+      <input type="text" id="taskInput" placeholder="What are you studying?" maxlength="140" autocomplete="off">
+      <button type="submit">Add</button>
+    </form>
+    <ul class="tasks" id="taskList"></ul>
+    <div class="foot">
+      <span id="taskCount">0 tasks</span>
+      <button id="clearDone" type="button">Clear finished</button>
+    </div>
+  </section>
+
+  <p class="empty">Everything is saved in this browser only (localStorage) — no account, no internet needed.</p>
+  <div class="foot"><span id="status"></span><button id="wipe" type="button">Reset all data</button></div>
+</main>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var KEY = "study-sprint-v1";
+  var PRESETS = [15, 25, 45, 50];
+
+  var state = load();
+  var timer = null;          // setInterval id
+  var endsAt = 0;            // epoch ms when the sprint finishes
+  var totalSec = state.length * 60;
+  var remainSec = totalSec;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var clock = $("clock"), fill = $("fill"), startBtn = $("startBtn"), statusLine = $("status");
+
+  /* ---------- storage ---------- */
+  function load() {
+    var fallback = { length: 25, tasks: [], sessions: [] };
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return fallback;
+      var d = JSON.parse(raw);
+      return {
+        length: PRESETS.indexOf(d.length) === -1 ? 25 : d.length,
+        tasks: Array.isArray(d.tasks) ? d.tasks : [],
+        sessions: Array.isArray(d.sessions) ? d.sessions : []
+      };
+    } catch (e) {
+      return fallback;
+    }
+  }
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+      statusLine.textContent = "Saved " + new Date().toLocaleTimeString();
+    } catch (e) {
+      statusLine.textContent = "Could not save (storage blocked)";
+    }
+  }
+
+  /* ---------- helpers ---------- */
+  function dayKey(d) {
+    var dt = d ? new Date(d) : new Date();
+    return dt.getFullYear() + "-" + (dt.getMonth() + 1) + "-" + dt.getDate();
+  }
+  function fmt(sec) {
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(function () { t.classList.remove("show"); }, 3200);
+  }
+  function beep() {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      var ctx = new Ctx();
+      [880, 1175].forEach(function (f, i) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = "sine"; o.frequency.value = f;
+        o.connect(g); g.connect(ctx.destination);
+        var t0 = ctx.currentTime + i * 0.25;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
+        o.start(t0); o.stop(t0 + 0.24);
+      });
+    } catch (e) { /* audio is a nice-to-have */ }
+  }
+
+  /* ---------- timer ---------- */
+  function render() {
+    clock.textContent = fmt(remainSec);
+    fill.style.width = (totalSec ? ((totalSec - remainSec) / totalSec) * 100 : 0) + "%";
+    document.title = timer ? fmt(remainSec) + " — Study Sprint" : "Study Sprint — focus timer & task list";
+  }
+  function tick() {
+    remainSec = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
+    render();
+    if (remainSec > 0) return;
+    stop();
+    complete();
+  }
+  function start() {
+    if (timer) { pause(); return; }
+    endsAt = Date.now() + remainSec * 1000;
+    timer = setInterval(tick, 250);
+    startBtn.textContent = "Pause";
+    startBtn.classList.add("running");
+    clock.classList.remove("done");
+    beep();               // unlocks audio on the click, also acts as the "go" cue
+    tick();
+  }
+  function pause() {
+    clearInterval(timer);
+    timer = null;
+    startBtn.textContent = "Resume";
+    startBtn.classList.remove("running");
+    render();
+  }
+  function stop() {
+    clearInterval(timer);
+    timer = null;
+    startBtn.textContent = "Start";
+    startBtn.classList.remove("running");
+  }
+  function reset() {
+    stop();
+    totalSec = state.length * 60;
+    remainSec = totalSec;
+    clock.classList.remove("done");
+    render();
+  }
+  function complete() {
+    state.sessions.push({ at: Date.now(), min: state.length });
+    save();
+    renderStats();
+    clock.textContent = "Done!";
+    clock.classList.add("done");
+    fill.style.width = "100%";
+    document.title = "Sprint complete ✅";
+    beep();
+    toast("Sprint finished — " + state.length + " focus minutes logged");
+  }
+
+  /* ---------- presets ---------- */
+  function renderPresets() {
+    var wrap = $("presets");
+    wrap.innerHTML = "";
+    PRESETS.forEach(function (min) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = min + " min";
+      b.className = min === state.length ? "active" : "";
+      b.addEventListener("click", function () {
+        state.length = min;
+        save();
+        renderPresets();
+        reset();
+      });
+      wrap.appendChild(b);
+    });
+  }
+
+  /* ---------- stats ---------- */
+  function renderStats() {
+    var today = dayKey();
+    var mine = state.sessions.filter(function (s) { return dayKey(s.at) === today; });
+    $("sSessions").textContent = mine.length;
+    $("sMinutes").textContent = mine.reduce(function (a, s) { return a + s.min; }, 0);
+
+    var days = {};
+    state.sessions.forEach(function (s) { days[dayKey(s.at)] = true; });
+    var streak = 0, cursor = new Date();
+    if (!days[dayKey(cursor)]) cursor.setDate(cursor.getDate() - 1); // today not earned yet: count from yesterday
+    while (days[dayKey(cursor)]) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    $("sStreak").textContent = streak;
+  }
+
+  /* ---------- tasks ---------- */
+  function renderTasks() {
+    var list = $("taskList");
+    list.innerHTML = "";
+    if (!state.tasks.length) {
+      var p = document.createElement("li");
+      p.className = "empty";
+      p.style.border = "0";
+      p.style.background = "none";
+      p.textContent = "No tasks yet — add one above.";
+      list.appendChild(p);
+    }
+    state.tasks.forEach(function (t, i) {
+      var li = document.createElement("li");
+      if (t.done) li.className = "done";
+
+      var cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = !!t.done;
+      cb.id = "task-" + i;
+      cb.addEventListener("change", function () {
+        t.done = cb.checked;
+        save();
+        renderTasks();
+      });
+
+      var label = document.createElement("label");
+      label.htmlFor = cb.id;
+      label.textContent = t.text;
+
+      var del = document.createElement("button");
+      del.className = "del";
+      del.type = "button";
+      del.title = "Delete task";
+      del.setAttribute("aria-label", "Delete task");
+      del.textContent = "✕";
+      del.addEventListener("click", function () {
+        state.tasks.splice(i, 1);
+        save();
+        renderTasks();
+      });
+
+      li.appendChild(cb);
+      li.appendChild(label);
+      li.appendChild(del);
+      list.appendChild(li);
+    });
+
+    var left = state.tasks.filter(function (t) { return !t.done; }).length;
+    $("taskCount").textContent = state.tasks.length
+      ? left + " open / " + state.tasks.length + " total"
+      : "0 tasks";
+  }
+
+  /* ---------- wire up ---------- */
+  $("taskForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var input = $("taskInput");
+    var text = input.value.trim();
+    if (!text) { input.focus(); return; }
+    state.tasks.unshift({ text: text, done: false });
+    input.value = "";
+    input.focus();
+    save();
+    renderTasks();
+  });
+
+  $("clearDone").addEventListener("click", function () {
+    var before = state.tasks.length;
+    state.tasks = state.tasks.filter(function (t) { return !t.done; });
+    if (before !== state.tasks.length) { save(); renderTasks(); }
+  });
+
+  $("startBtn").addEventListener("click", start);
+  $("resetBtn").addEventListener("click", reset);
+
+  $("wipe").addEventListener("click", function () {
+    if (!confirm("Delete all sprints and tasks?")) return;
+    state = { length: 25, tasks: [], sessions: [] };
+    save();
+    renderPresets();
+    renderTasks();
+    renderStats();
+    reset();
+    toast("Data cleared");
+  });
+
+  document.addEventListener("keydown", function (e) {
+    // never steal keys from a focused control: Space on a button must activate that button
+    if (/^(INPUT|TEXTAREA|BUTTON|SELECT|A)$/.test(e.target.tagName)) return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+    if (e.code === "Space") { e.preventDefault(); start(); }
+    if (e.key === "r" || e.key === "R") reset();
+  });
+
+  renderPresets();
+  renderTasks();
+  renderStats();
+  reset();
+})();
+</script>
+</body>
+</html>
